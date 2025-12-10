@@ -28,6 +28,9 @@ app.UseSwaggerUI();
 
 // Add middleware to handle CORS and route HTTP requests to controller actions
 app.UseCors();
+
+app.MapGet("/health", () => Results.Ok("OK"));
+
 app.MapControllers();
 
 // Start the web server
