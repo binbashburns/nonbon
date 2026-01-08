@@ -88,6 +88,35 @@
         button:hover {
             background: #3a3a3a;
         }
+
+        .view-toggle button {
+            margin-left: 8px;
+        }
+
+        .view-toggle button.active {
+            background: #f5f5f5;
+            color: #111;
+        }
+
+        /* === PI DASHBOARD MODE === */
+        body.pi-view #controls {
+            display: none;
+        }
+
+        body.pi-view #columns {
+            max-width: 1280px;
+            height: 600px;
+            margin: 0 auto;
+        }
+
+        body.pi-view .column h2 {
+            font-size: 1.4rem;
+        }
+
+        body.pi-view .column li {
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 
@@ -97,28 +126,28 @@
         <div>
             <h1>nonbon</h1>
         </div>
+
+        <div class="view-toggle">
+            <span>view:</span>
+            <button id="boardButton" onclick="setViewMode('normal')">board</button>
+            <button id="piButton" onclick="setViewMode('pi')">pi dashboard</button>
+        </div>
     </header>
 
     <div id="columns">
         <section class="column">
             <h2>Backlog</h2>
-            <ul>
-                <li>empty</li>
-            </ul>
+            <ul id="backlog-list"></ul>
         </section>
 
         <section class="column">
             <h2>Active</h2>
-            <ul>
-                <li>empty</li>
-            </ul>
+            <ul id="active-list"></ul>
         </section>
 
         <section class="column">
             <h2>Done</h2>
-            <ul>
-                <li>empty</li>
-            </ul>
+            <ul id="done-list"></ul>
         </section>
     </div>
 
@@ -139,13 +168,15 @@
                 <option value="Done">Done</option>
             </select>
 
-            <button>Add</button>
+            <button onclick="addFocus()">Add</button>
         </section>
 
         <section>
             <h3>clean this mess up</h3>
-            <button>archive all done</button>
+            <button onclick="archiveDone()">archive all done</button>
         </section>
     </div>
+
+    <script src="nonbon.js"></script>
 </body>
 </html>
