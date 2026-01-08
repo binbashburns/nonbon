@@ -1,6 +1,6 @@
 // API routing:
 // - In production, the API will be exposed at https://api-nonbon.binbashburns.com/api/focus
-// - In local/dev, the API will be exposed on host port 5000 (matching docker-compose and Dockerfile)
+// - In local/dev, the API will be exposed on host port 5000 (to match future docker-compose and Dockerfile)
 let baseUrl;
 
 if (window.location.hostname === "nonbon.binbashburns.com") {
