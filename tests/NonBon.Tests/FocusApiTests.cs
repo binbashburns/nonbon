@@ -1,6 +1,7 @@
 using NonBon.Api.Controllers;
 using NonBon.Api.Models;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace NonBon.Tests;
@@ -8,10 +9,11 @@ namespace NonBon.Tests;
 public class FocusApiTests
 {
     [Fact]
+    // Returns OK and a list for GET /api/focus.
     public void GetFocus_ReturnsOkAndList()
     {
         // Arrange
-        var controller = new FocusController();
+        var controller = CreateController();
 
         // Act
         var result = controller.GetAll();
@@ -23,10 +25,11 @@ public class FocusApiTests
     }
 
     [Fact]
+    // Creates a focus item and returns CreatedAtAction.
     public void PostFocus_CreatesNewItem()
     {
         // Arrange
-        var controller = new FocusController();
+        var controller = CreateController();
         var newItem = new FocusItem
         {
             Title = "Write unit tests",
@@ -51,10 +54,11 @@ public class FocusApiTests
     }
 
     [Fact]
+    // Updates status for an existing item and returns NoContent.
     public void PutStatus_ChangesStatusToDone()
     {
         // Arrange: start with a controller and one created item
-        var controller = new FocusController();
+        var controller = CreateController();
         var newItem = new FocusItem
         {
             Title = "Move this to done",
@@ -83,10 +87,11 @@ public class FocusApiTests
     }
 
     [Fact]
+    // Enforces the max-active rule when creating items.
     public void PostFocus_ReturnsBadRequest_WhenMaxActiveExceeded()
     {
         // Arrange: seed the controller with MaxActive active items
-        var controller = new FocusController();
+        var controller = CreateController();
         for (int i = 0; i < 3; i++) // 3 == MaxActive in controller
         {
             var activeItem = new FocusItem
@@ -112,8 +117,13 @@ public class FocusApiTests
 
         // Assert: returns 400 with an explanatory message
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        var message = Assert.IsType<string>(badRequest.Value);
-        Assert.False(string.IsNullOrWhiteSpace(message));
-        Assert.Contains("active", message, StringComparison.OrdinalIgnoreCase);
+        var problem = Assert.IsType<ProblemDetails>(badRequest.Value);
+        Assert.False(string.IsNullOrWhiteSpace(problem.Detail));
+        Assert.Contains("active", problem.Detail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static FocusController CreateController()
+    {
+        return new FocusController(NullLogger<FocusController>.Instance);
     }
 }

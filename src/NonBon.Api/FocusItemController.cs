@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NonBon.Api.Models;
 
@@ -7,15 +8,22 @@ namespace NonBon.Api.Controllers;
 [Route("api/[controller]")]
 public class FocusController : ControllerBase
 {
-    // In-memory storage for demo purposes.
+    private readonly ILogger<FocusController> _logger;
+
+    // In-memory storage for demo purposes
     private static readonly List<FocusItem> Items = new();
     private static int _nextId = 1;
 
     // Hard limit on concurrently active focuses
     private const int MaxActive = 3;
 
-    // Allowed status values; all inputs are normalized to this set.
+    // Allowed status values; all inputs are normalized to this set
     private static readonly string[] AllowedStatuses = new[] { "Backlog", "Active", "Done", "Archived" };
+
+    public FocusController(ILogger<FocusController> logger)
+    {
+        _logger = logger;
+    }
 
     [HttpGet]
     public ActionResult<IEnumerable<FocusItem>> GetAll()
@@ -34,7 +42,11 @@ public class FocusController : ControllerBase
     public ActionResult<FocusItem> GetRandomBacklog()
     {
         var backlog = Items.Where(i => i.Status == "Backlog").ToList();
-        if (backlog.Count == 0) return NotFound();
+        if (backlog.Count == 0)
+        {
+            _logger.LogWarning("Random backlog request failed: backlog is empty.");
+            return NotFound(CreateProblem("Backlog is empty", "No backlog items are available.", StatusCodes.Status404NotFound));
+        }
 
         var random = new Random();
         var item = backlog[random.Next(backlog.Count)];
@@ -46,11 +58,12 @@ public class FocusController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(item.Title))
         {
+            _logger.LogWarning("Create failed: title was missing.");
             ModelState.AddModelError(nameof(item.Title), "Title is required.");
             return ValidationProblem(ModelState);
         }
 
-        // Determine desired status, defaulting and validating against the allowed set.
+        // Determine desired status, defaulting and validating against the allowed set
         string desiredStatus = item.Status;
         if (string.IsNullOrWhiteSpace(desiredStatus))
         {
@@ -58,6 +71,7 @@ public class FocusController : ControllerBase
         }
         else if (!TryNormalizeStatus(desiredStatus, out var normalizedStatus))
         {
+            _logger.LogWarning("Create failed: invalid status {Status}.", desiredStatus);
             ModelState.AddModelError(nameof(item.Status), $"Status must be one of: {string.Join(", ", AllowedStatuses)}.");
             return ValidationProblem(ModelState);
         }
@@ -68,7 +82,9 @@ public class FocusController : ControllerBase
 
         if (desiredStatus == "Active" && CountActive() >= MaxActive)
         {
-            return BadRequest($"Cannot add more than {MaxActive} active items.");
+            var detail = $"Cannot add more than {MaxActive} active items.";
+            _logger.LogWarning("Create failed: {Detail}", detail);
+            return BadRequest(CreateProblem("Max active limit reached", detail, StatusCodes.Status400BadRequest));
         }
 
         item.Id = _nextId++;
@@ -82,23 +98,31 @@ public class FocusController : ControllerBase
     public ActionResult UpdateStatus(int id, [FromBody] string newStatus)
     {
         var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return NotFound();
+        if (item is null)
+        {
+            _logger.LogWarning("UpdateStatus failed: item {Id} not found.", id);
+            return NotFound(CreateProblem("Focus item not found", $"No focus item found with id {id}.", StatusCodes.Status404NotFound));
+        }
 
         if (string.IsNullOrWhiteSpace(newStatus))
         {
+            _logger.LogWarning("UpdateStatus failed: status was missing for item {Id}.", id);
             ModelState.AddModelError("Status", "Status is required.");
             return ValidationProblem(ModelState);
         }
 
         if (!TryNormalizeStatus(newStatus, out var normalizedStatus))
         {
+            _logger.LogWarning("UpdateStatus failed: invalid status {Status} for item {Id}.", newStatus, id);
             ModelState.AddModelError("Status", $"Status must be one of: {string.Join(", ", AllowedStatuses)}.");
             return ValidationProblem(ModelState);
         }
 
         if (normalizedStatus == "Active" && item.Status != "Active" && CountActive() >= MaxActive)
         {
-            return BadRequest($"Cannot have more than {MaxActive} active items.");
+            var detail = $"Cannot have more than {MaxActive} active items.";
+            _logger.LogWarning("UpdateStatus failed: {Detail}", detail);
+            return BadRequest(CreateProblem("Max active limit reached", detail, StatusCodes.Status400BadRequest));
         }
 
         item.Status = normalizedStatus;
@@ -123,5 +147,15 @@ public class FocusController : ControllerBase
 
         normalized = string.Empty;
         return false;
+    }
+
+    private static ProblemDetails CreateProblem(string title, string detail, int status)
+    {
+        return new ProblemDetails
+        {
+            Title = title,
+            Detail = detail,
+            Status = status
+        };
     }
 }
